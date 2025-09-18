@@ -27,16 +27,16 @@ export default function AdHookPage() {
 
       // NEW: save to Supabase via server route
       await fetch("/api/save-adcopy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          productName,
-          description,
-          platform,
-          variations: data.variations || [],
-          // userId: optional; wire later from session
-        }),
-      });
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    productName,
+    description,
+    platform,
+    variations: data.variations || [],
+  }),
+});
+
     } catch (err: any) {
       setError(err.message);
     } finally {
