@@ -1,21 +1,22 @@
 // ======================================================
-// FILE: app/adhook/images/edit/page.tsx   (Image → Image UI)
+// FILE: app/adhook/images/edit/page.tsx   (Image → Image, progressive)
 // ======================================================
 "use client";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 
 export default function EditImagesPage() {
   const [productName, setProductName] = useState("");
   const [description, setDescription] = useState("");
   const [platform, setPlatform] = useState("Facebook");
-  const [size, setSize] = useState("1024x1024");
-  const [count, setCount] = useState(4);
+  const [size, setSize] = useState("1024x1536");
+  const [count, setCount] = useState(2);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [maskFile, setMaskFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [urls, setUrls] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const inFlight = useRef(false);
 
   function buildPrompt() {
     const base = `Enhance/transform the uploaded product photo into a high-performing ad visual for ${productName} on ${platform}. ${description}`;
@@ -24,42 +25,66 @@ export default function EditImagesPage() {
     return `${base}. Style: ${style}.`;
   }
 
+  async function editOne(fdBase: FormData) {
+    try {
+      const r = await fetch("/api/edit-image", { method: "POST", body: fdBase });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data?.error || "Edit failed");
+      const first = (data.urls || [])[0];
+      if (first) setUrls((u) => [...u, first]);
+    } catch (e: any) {
+      setError((prev) => prev ?? e.message);
+    }
+  }
+
   async function onGenerate(e: React.FormEvent) {
     e.preventDefault();
+    if (inFlight.current) return;
+    inFlight.current = true;
+
     setError(null);
     setUrls([]);
     setLoading(true);
+
     try {
       if (!imageFile) throw new Error("Please choose an image");
 
       const prompt = buildPrompt();
-      const fd = new FormData();
-      fd.append("image", imageFile);
-      if (maskFile) fd.append("mask", maskFile);
-      fd.append("prompt", prompt);
-      fd.append("size", size);
-      fd.append("n", String(count));
 
-      const r = await fetch("/api/edit-image", { method: "POST", body: fd });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data?.error || "Edit failed");
-      setUrls(data.urls || []);
+      // Build a FormData *template* we can clone per request (n=1 each)
+      const base = new FormData();
+      base.append("image", imageFile);
+      if (maskFile) base.append("mask", maskFile);
+      base.append("prompt", prompt);
+      base.append("size", size);
+      base.append("n", "1");
 
-      await fetch("/api/save-images", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          productName,
-          description,
-          platform,
-          prompt,
-          urls: data.urls || [],
-        }),
-      });
-    } catch (err: any) {
-      setError(err.message);
+      // Launch N parallel edits for progressive display
+      await Promise.allSettled(
+        Array.from({ length: count }, () => {
+          const fd = new FormData();
+          base.forEach((v, k) => fd.append(k, v as any));
+          return editOne(fd);
+        })
+      );
+
+      // Save (fire-and-forget) after images are shown
+      if (urls.length > 0) {
+        fetch("/api/save-images", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            productName,
+            description,
+            platform,
+            prompt,
+            urls,
+          }),
+        }).catch(() => {});
+      }
     } finally {
       setLoading(false);
+      inFlight.current = false;
     }
   }
 
@@ -148,6 +173,10 @@ export default function EditImagesPage() {
             {loading ? "Enhancing…" : "Generate Enhanced Images"}
           </button>
         </form>
+
+        {loading && (
+          <div className="text-sm text-gray-600">{urls.length}/{count} ready… keep this tab open.</div>
+        )}
 
         {error && <p className="text-red-600 text-sm">{error}</p>}
 
