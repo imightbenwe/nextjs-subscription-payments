@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-export const dynamic = "force-dynamic"; // avoid caching
+export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,15 +13,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "prompt required" }, { status: 400 });
     }
 
-    // OpenAI Images (DALL·E / gpt-image-1) generation
     const res = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
         Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-image-1", // falls back to dall-e-3 on some accounts
+        model: "gpt-image-1",
         prompt,
         n,
         size,
@@ -34,7 +33,17 @@ export async function POST(req: NextRequest) {
     }
 
     const data = await res.json();
-    const urls = (data?.data || []).map((d: any) => d.url).filter(Boolean);
+    const items = Array.isArray(data?.data) ? data.data : [];
+
+    // Normalize to data URLs so UI can always display
+    const urls: string[] = items
+      .map((d: any) => {
+        if (d?.url) return d.url;
+        if (d?.b64_json) return `data:image/png;base64,${d.b64_json}`;
+        return null;
+      })
+      .filter(Boolean);
+
     return NextResponse.json({ urls });
   } catch (e: any) {
     return NextResponse.json({ error: e.message ?? "Server error" }, { status: 500 });
