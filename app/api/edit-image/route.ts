@@ -1,10 +1,18 @@
-// ======================================================
-// FILE: app/api/edit-image/route.ts  (img2img + optional mask)
-// ======================================================
+// ==============================================
+// FILE: app/api/edit-image/route.ts   (img2img)
+// ==============================================
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+
+const ALLOWED = new Set(["1024x1024", "1024x1536", "1536x1024", "auto"]);
+function normalizeSize(s: string | undefined) {
+  if (!s) return "1024x1024";
+  if (s === "1024x1792") return "1024x1536";
+  if (s === "1792x1024") return "1536x1024";
+  return ALLOWED.has(s) ? s : "1024x1024";
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -16,7 +24,7 @@ export async function POST(req: NextRequest) {
     const image = form.get("image") as File | null;
     const mask = form.get("mask") as File | null; // optional
     const prompt = (form.get("prompt") as string) || "";
-    const size = (form.get("size") as string) || "1024x1024";
+    const size = normalizeSize(form.get("size") as string | undefined);
     const n = parseInt((form.get("n") as string) || "4", 10);
 
     if (!image) return NextResponse.json({ error: "image file required" }, { status: 400 });
