@@ -22,7 +22,21 @@ export default function AdHookPage() {
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data?.error || "Request failed");
+
       setVariations(data.variations || []);
+
+      // NEW: save to Supabase via server route
+      await fetch("/api/save-adcopy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productName,
+          description,
+          platform,
+          variations: data.variations || [],
+          // userId: optional; wire later from session
+        }),
+      });
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -77,9 +91,7 @@ export default function AdHookPage() {
             <div className="text-sm leading-6">{v.primary_text}</div>
             <div className="text-xs opacity-70">CTA: {v.cta}</div>
             {Array.isArray(v.keywords) && (
-              <div className="text-xs opacity-70">
-                Keywords: {v.keywords.join(", ")}
-              </div>
+              <div className="text-xs opacity-70">Keywords: {v.keywords.join(", ")}</div>
             )}
           </div>
         ))}
