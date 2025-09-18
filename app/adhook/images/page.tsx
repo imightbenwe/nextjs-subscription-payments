@@ -105,8 +105,9 @@ export default function ImagesPage() {
             <label className="text-sm font-medium">Size</label>
             <select className="border rounded p-2" value={size} onChange={(e) => setSize(e.target.value)}>
               <option value="1024x1024">Square 1024×1024</option>
-              <option value="1024x1792">Story 1024×1792</option>
-              <option value="1792x1024">Wide 1792×1024</option>
+              <option value="1024x1536">Story 1024×1536</option>
+              <option value="1536x1024">Wide 1536×1024</option>
+              <option value="auto">Auto</option>
             </select>
 
             <label className="text-sm font-medium">Count</label>
@@ -121,13 +122,13 @@ export default function ImagesPage() {
             </select>
           </div>
 
-          <button
-            type="submit"
-            className="col-span-2 md:col-span-1 px-4 py-2 rounded bg-black text-white disabled:opacity-60"
-            disabled={loading}
-          >
-            {loading ? "Generating…" : "Generate Images"}
-          </button>
+            <button
+              type="submit"
+              className="col-span-2 md:col-span-1 px-4 py-2 rounded bg-black text-white disabled:opacity-60"
+              disabled={loading}
+            >
+              {loading ? "Generating…" : "Generate Images"}
+            </button>
         </form>
 
         {error && <p className="text-red-600 text-sm">{error}</p>}
