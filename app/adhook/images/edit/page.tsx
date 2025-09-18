@@ -127,8 +127,9 @@ export default function EditImagesPage() {
             <label className="text-sm font-medium">Size</label>
             <select className="border rounded p-2" value={size} onChange={(e) => setSize(e.target.value)}>
               <option value="1024x1024">Square 1024×1024</option>
-              <option value="1024x1792">Story 1024×1792</option>
-              <option value="1792x1024">Wide 1792×1024</option>
+              <option value="1024x1536">Story 1024×1536</option>
+              <option value="1536x1024">Wide 1536×1024</option>
+              <option value="auto">Auto</option>
             </select>
 
             <label className="text-sm font-medium">Count</label>
@@ -157,11 +158,7 @@ export default function EditImagesPage() {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={u} alt={`Edited ${i + 1}`} className="w-full h-auto block" />
                 <div className="p-3 flex gap-3">
-                  <a
-                    href={u}
-                    download
-                    className="text-sm px-3 py-1 rounded bg-gray-900 text-white hover:opacity-90"
-                  >
+                  <a href={u} download className="text-sm px-3 py-1 rounded bg-gray-900 text-white hover:opacity-90">
                     Download
                   </a>
                   <button
