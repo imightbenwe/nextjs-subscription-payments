@@ -1,58 +1,77 @@
 // ======================================================
-// FILE: app/adhook/images/page.tsx   (Text → Image UI)
+// FILE: app/adhook/images/page.tsx   (Text → Image, progressive)
 // ======================================================
 "use client";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 
 export default function ImagesPage() {
   const [productName, setProductName] = useState("");
   const [description, setDescription] = useState("");
   const [platform, setPlatform] = useState("Facebook");
-  const [size, setSize] = useState("1024x1024");
+  const [size, setSize] = useState("1024x1024"); // use supported sizes
   const [count, setCount] = useState(4);
   const [loading, setLoading] = useState(false);
   const [urls, setUrls] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const inFlight = useRef(false);
 
   function buildPrompt() {
     const base = `Create a high-converting ad visual for ${productName} on ${platform}. ${description}`;
     const style =
-      "Commercial product photo, clean studio background, good lighting, crisp focus, text-safe composition";
+      "Commercial product photo, clean studio background, flattering lighting, crisp focus, text-safe composition";
     return `${base}. Style: ${style}.`;
+  }
+
+  async function generateOne(prompt: string, sz: string) {
+    try {
+      const r = await fetch("/api/generate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt, n: 1, size: sz }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data?.error || "Generation failed");
+      const first = (data.urls || [])[0];
+      if (first) setUrls((u) => [...u, first]);
+    } catch (e: any) {
+      // surface first error only, keep others going
+      setError((prev) => prev ?? e.message);
+    }
   }
 
   async function onGenerate(e: React.FormEvent) {
     e.preventDefault();
+    if (inFlight.current) return;
+    inFlight.current = true;
+
     setError(null);
     setUrls([]);
     setLoading(true);
+
     try {
       const prompt = buildPrompt();
-      const r = await fetch("/api/generate-image", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, n: count, size }),
-      });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data?.error || "Generation failed");
-      setUrls(data.urls || []);
 
-      await fetch("/api/save-images", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          productName,
-          description,
-          platform,
-          prompt,
-          urls: data.urls || [],
-        }),
-      });
-    } catch (err: any) {
-      setError(err.message);
+      // Kick off N parallel single-image requests to enable progressive display
+      await Promise.allSettled(Array.from({ length: count }, () => generateOne(prompt, size)));
+
+      // Save (fire-and-forget) AFTER results are on screen
+      if (urls.length > 0) {
+        fetch("/api/save-images", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            productName,
+            description,
+            platform,
+            prompt,
+            urls, // whatever finished
+          }),
+        }).catch(() => {});
+      }
     } finally {
       setLoading(false);
+      inFlight.current = false;
     }
   }
 
@@ -92,11 +111,7 @@ export default function ImagesPage() {
           />
           <div className="grid grid-cols-2 gap-3 col-span-2 md:col-span-1">
             <label className="text-sm font-medium">Platform</label>
-            <select
-              className="border rounded p-2"
-              value={platform}
-              onChange={(e) => setPlatform(e.target.value)}
-            >
+            <select className="border rounded p-2" value={platform} onChange={(e) => setPlatform(e.target.value)}>
               <option>Facebook</option>
               <option>Instagram</option>
               <option>TikTok</option>
@@ -111,25 +126,26 @@ export default function ImagesPage() {
             </select>
 
             <label className="text-sm font-medium">Count</label>
-            <select
-              className="border rounded p-2"
-              value={count}
-              onChange={(e) => setCount(parseInt(e.target.value, 10))}
-            >
+            <select className="border rounded p-2" value={count} onChange={(e) => setCount(parseInt(e.target.value, 10))}>
               <option value={1}>1</option>
               <option value={2}>2</option>
               <option value={4}>4</option>
             </select>
           </div>
 
-            <button
-              type="submit"
-              className="col-span-2 md:col-span-1 px-4 py-2 rounded bg-black text-white disabled:opacity-60"
-              disabled={loading}
-            >
-              {loading ? "Generating…" : "Generate Images"}
-            </button>
+          <button
+            type="submit"
+            className="col-span-2 md:col-span-1 px-4 py-2 rounded bg-black text-white disabled:opacity-60"
+            disabled={loading}
+          >
+            {loading ? "Generating…" : "Generate Images"}
+          </button>
         </form>
+
+        {/* subtle progress notice */}
+        {loading && (
+          <div className="text-sm text-gray-600">{urls.length}/{count} ready… keep this tab open.</div>
+        )}
 
         {error && <p className="text-red-600 text-sm">{error}</p>}
 
@@ -140,11 +156,7 @@ export default function ImagesPage() {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={u} alt={`Generated ${i + 1}`} className="w-full h-auto block" />
                 <div className="p-3 flex gap-3">
-                  <a
-                    href={u}
-                    download
-                    className="text-sm px-3 py-1 rounded bg-gray-900 text-white hover:opacity-90"
-                  >
+                  <a href={u} download className="text-sm px-3 py-1 rounded bg-gray-900 text-white hover:opacity-90">
                     Download
                   </a>
                   <button
