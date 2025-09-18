@@ -1,6 +1,10 @@
+// ======================================================
+// FILE: app/api/generate-image/route.ts
+// ======================================================
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   try {
@@ -35,13 +39,9 @@ export async function POST(req: NextRequest) {
     const data = await res.json();
     const items = Array.isArray(data?.data) ? data.data : [];
 
-    // Normalize to data URLs so UI can always display
+    // Normalize to data URLs when only b64 is returned
     const urls: string[] = items
-      .map((d: any) => {
-        if (d?.url) return d.url;
-        if (d?.b64_json) return `data:image/png;base64,${d.b64_json}`;
-        return null;
-      })
+      .map((d: any) => (d?.url ? d.url : d?.b64_json ? `data:image/png;base64,${d.b64_json}` : null))
       .filter(Boolean);
 
     return NextResponse.json({ urls });
