@@ -1,6 +1,10 @@
+// ======================================================
+// FILE: app/api/edit-image/route.ts  (img2img + optional mask)
+// ======================================================
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,12 +19,8 @@ export async function POST(req: NextRequest) {
     const size = (form.get("size") as string) || "1024x1024";
     const n = parseInt((form.get("n") as string) || "4", 10);
 
-    if (!image) {
-      return NextResponse.json({ error: "image file required" }, { status: 400 });
-    }
-    if (!prompt) {
-      return NextResponse.json({ error: "prompt required" }, { status: 400 });
-    }
+    if (!image) return NextResponse.json({ error: "image file required" }, { status: 400 });
+    if (!prompt) return NextResponse.json({ error: "prompt required" }, { status: 400 });
 
     const fd = new FormData();
     fd.append("model", "gpt-image-1");
@@ -32,9 +32,7 @@ export async function POST(req: NextRequest) {
 
     const res = await fetch("https://api.openai.com/v1/images/edits", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      },
+      headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
       body: fd,
     });
 
@@ -46,11 +44,7 @@ export async function POST(req: NextRequest) {
     const data = await res.json();
     const items = Array.isArray(data?.data) ? data.data : [];
     const urls: string[] = items
-      .map((d: any) => {
-        if (d?.url) return d.url;
-        if (d?.b64_json) return `data:image/png;base64,${d.b64_json}`;
-        return null;
-      })
+      .map((d: any) => (d?.url ? d.url : d?.b64_json ? `data:image/png;base64,${d.b64_json}` : null))
       .filter(Boolean);
 
     return NextResponse.json({ urls });
