@@ -9,40 +9,41 @@ export default function AdHookPage() {
   const [variations, setVariations] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    setVariations([]);
-    try {
-      const r = await fetch("/api/generate-adcopy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productName, description, platform }),
-      });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data?.error || "Request failed");
+ async function onSubmit(e: React.FormEvent) {
+  e.preventDefault();
+  setLoading(true);
+  setError(null);
+  setVariations([]);
+  try {
+    const r = await fetch("/api/generate-adcopy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ productName, description, platform }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data?.error || "Request failed");
 
-      setVariations(data.variations || []);
+    const vars = Array.isArray(data.variations) ? data.variations : [];
+    setVariations(vars);
 
-      // NEW: save to Supabase via server route
-      await fetch("/api/save-adcopy", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    productName,
-    description,
-    platform,
-    variations: data.variations || [],
-  }),
-});
-
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+    // save to Supabase
+    await fetch("/api/save-adcopy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        productName,
+        description,
+        platform,
+        variations: vars,
+      }),
+    });
+  } catch (err: any) {
+    setError(err.message);
+  } finally {
+    setLoading(false);
   }
+}
+
 
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-6">
