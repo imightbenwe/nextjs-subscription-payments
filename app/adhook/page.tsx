@@ -2,67 +2,110 @@
 import { useState } from "react";
 import Link from "next/link";
 
-// … keep your component state and onSubmit …
+export default function AdHookPage() {
+  const [productName, setProductName] = useState("");
+  const [description, setDescription] = useState("");
+  const [platform, setPlatform] = useState("Facebook");
+  const [loading, setLoading] = useState(false);
+  const [variations, setVariations] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
-return (
-  <div className="min-h-screen bg-gray-100 text-gray-900 flex items-center justify-center p-6">
-    <div className="w-full max-w-2xl bg-white shadow rounded-lg p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Generate Ad Copy</h1>
-        <Link
-          href="/adhook/history"
-          className="text-sm underline underline-offset-4 hover:opacity-80"
-        >
-          View history →
-        </Link>
-      </div>
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    setVariations([]);
+    try {
+      const r = await fetch("/api/generate-adcopy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productName, description, platform }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data?.error || "Request failed");
 
-      <form onSubmit={onSubmit} className="space-y-3">
-        <input
-          className="w-full border rounded p-2 text-gray-900 placeholder:text-gray-500"
-          placeholder="Product name"
-          value={productName}
-          onChange={(e) => setProductName(e.target.value)}
-          required
-        />
-        <textarea
-          className="w-full border rounded p-2 text-gray-900 placeholder:text-gray-500"
-          placeholder="Short product description"
-          rows={4}
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          required
-        />
-        <select
-          className="w-full border rounded p-2 text-gray-900"
-          value={platform}
-          onChange={(e) => setPlatform(e.target.value)}
-        >
-          <option>Facebook</option>
-          <option>Instagram</option>
-          <option>TikTok</option>
-        </select>
-        <button
-          type="submit"
-          className="px-4 py-2 rounded bg-black text-white disabled:opacity-60"
-          disabled={loading}
-        >
-          {loading ? "Generating…" : "Generate 3 Variations"}
-        </button>
-      </form>
+      const vars = Array.isArray(data.variations) ? data.variations : [];
+      setVariations(vars);
 
-      {error && <p className="text-red-600 text-sm">{error}</p>}
+      await fetch("/api/save-adcopy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productName,
+          description,
+          platform,
+          variations: vars,
+        }),
+      });
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
 
-      {variations.map((v, i) => (
-        <div key={i} className="border rounded p-4 space-y-2 bg-gray-50">
-          <div className="font-semibold">{v.headline}</div>
-          <div className="text-sm leading-6">{v.primary_text}</div>
-          <div className="text-xs text-gray-500">CTA: {v.cta}</div>
-          {Array.isArray(v.keywords) && (
-            <div className="text-xs text-gray-500">Keywords: {v.keywords.join(", ")}</div>
-          )}
+  return (
+    <div className="min-h-screen bg-gray-100 text-gray-900 flex items-center justify-center p-6">
+      <div className="w-full max-w-2xl bg-white shadow rounded-lg p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-semibold">Generate Ad Copy</h1>
+          <Link
+            href="/adhook/history"
+            className="text-sm underline underline-offset-4 hover:opacity-80"
+          >
+            View history →
+          </Link>
         </div>
-      ))}
+
+        <form onSubmit={onSubmit} className="space-y-3">
+          <input
+            className="w-full border rounded p-2 text-gray-900 placeholder:text-gray-500"
+            placeholder="Product name"
+            value={productName}
+            onChange={(e) => setProductName(e.target.value)}
+            required
+          />
+          <textarea
+            className="w-full border rounded p-2 text-gray-900 placeholder:text-gray-500"
+            placeholder="Short product description"
+            rows={4}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            required
+          />
+          <select
+            className="w-full border rounded p-2 text-gray-900"
+            value={platform}
+            onChange={(e) => setPlatform(e.target.value)}
+          >
+            <option>Facebook</option>
+            <option>Instagram</option>
+            <option>TikTok</option>
+          </select>
+          <button
+            type="submit"
+            className="px-4 py-2 rounded bg-black text-white disabled:opacity-60"
+            disabled={loading}
+          >
+            {loading ? "Generating…" : "Generate 3 Variations"}
+          </button>
+        </form>
+
+        {error && <p className="text-red-600 text-sm">{error}</p>}
+
+        {variations.map((v, i) => (
+          <div key={i} className="border rounded p-4 space-y-2 bg-gray-50">
+            <div className="font-semibold">{v.headline}</div>
+            <div className="text-sm leading-6">{v.primary_text}</div>
+            <div className="text-xs text-gray-500">CTA: {v.cta}</div>
+            {Array.isArray(v.keywords) && (
+              <div className="text-xs text-gray-500">
+                Keywords: {v.keywords.join(", ")}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
-  </div>
-);
+  );
+}
