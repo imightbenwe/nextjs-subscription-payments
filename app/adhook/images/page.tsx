@@ -1,3 +1,6 @@
+// ======================================================
+// FILE: app/adhook/images/page.tsx   (Text → Image UI)
+// ======================================================
 "use client";
 import { useState } from "react";
 import Link from "next/link";
@@ -35,7 +38,6 @@ export default function ImagesPage() {
       if (!r.ok) throw new Error(data?.error || "Generation failed");
       setUrls(data.urls || []);
 
-      // auto-save to Supabase
       await fetch("/api/save-images", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -62,6 +64,9 @@ export default function ImagesPage() {
           <div className="flex gap-4 text-sm">
             <Link href="/adhook" className="underline underline-offset-4 hover:opacity-80">
               Copy Generator
+            </Link>
+            <Link href="/adhook/images/edit" className="underline underline-offset-4 hover:opacity-80">
+              Image → Image
             </Link>
             <Link href="/adhook/history" className="underline underline-offset-4 hover:opacity-80">
               View History
